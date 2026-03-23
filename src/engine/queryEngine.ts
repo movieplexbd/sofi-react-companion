@@ -38,15 +38,15 @@ function hybridSearch(
     bm25M.tf.forEach((_, i) => { const s = bm25Score(expandedToks, i, bm25M); if (s > mx) { mx = s; bi = i; } });
     if (mx > TH(cfg, 'bm25') && bi !== -1) {
       const item = bm25M.qa[bm25M.tf[bi].idx];
-      if (item) candidates.push({ item, _score: mx * 12, _method: 'BM25' });
+      if (item) candidates.push({ item, _score: mx * 14, _method: 'BM25' });
     }
   }
 
-  // 2. BM25F
+  // 2. BM25F with enhanced field weights
   if (feat(cfg, 'bm25Enabled') && D.qa.length) {
     let mx = -1; let bestItem: QAItem | null = null;
     D.qa.forEach(item => { const s = bm25FScore(expandedToks, item); if (s > mx) { mx = s; bestItem = item; } });
-    if (mx > 0.05 && bestItem) candidates.push({ item: bestItem, _score: mx * 90, _method: 'BM25F' });
+    if (mx > 0.03 && bestItem) candidates.push({ item: bestItem, _score: mx * 95, _method: 'BM25F' });
   }
 
   // 3. TF-IDF
@@ -55,18 +55,18 @@ function hybridSearch(
     if (r) candidates.push({ item: r.item, _score: r.score, _method: 'TF-IDF' });
   }
 
-  // 4. N-gram
+  // 4. N-gram with trigram support
   if (feat(cfg, 'ngramEnabled') && tokens.length) {
     let bs = -1; let bi: QAItem | null = null;
     D.qa.forEach(item => {
-      const dt = tokenize((item.processedQuestions || []).join(' '));
+      const dt = tokenize((item.processedQuestions || []).join(' ') + ' ' + (item.originalQuestions || []).join(' '));
       const s = ngramSim(tokens, dt);
       if (s > bs) { bs = s; bi = item; }
     });
-    if (bs >= TH(cfg, 'ngram') && bi) candidates.push({ item: bi, _score: bs * 80, _method: 'N-gram' });
+    if (bs >= TH(cfg, 'ngram') && bi) candidates.push({ item: bi, _score: bs * 85, _method: 'N-gram' });
   }
 
-  // 5. Fuzzy
+  // 5. Fuzzy (with substring boost)
   if (feat(cfg, 'fuzzyEnabled')) {
     const r = fuzzyBest(original, D.qa, TH(cfg, 'fuzzy'));
     if (r) candidates.push({ item: r.item, _score: r.score, _method: 'Fuzzy' });
@@ -78,7 +78,7 @@ function hybridSearch(
     if (r) candidates.push({ item: r.item, _score: r.score, _method: 'Phonetic' });
   }
 
-  // 7. Jaccard
+  // 7. Jaccard with partial matching
   if (feat(cfg, 'jaccardEnabled') && tokens.length) {
     let bs = -1; let bi: QAItem | null = null;
     D.qa.forEach(item => {
@@ -86,7 +86,23 @@ function hybridSearch(
       const s = jaccard(tokens, dt);
       if (s > bs) { bs = s; bi = item; }
     });
-    if (bs >= TH(cfg, 'jaccard') && bi) candidates.push({ item: bi, _score: bs * 75, _method: 'Jaccard' });
+    if (bs >= TH(cfg, 'jaccard') && bi) candidates.push({ item: bi, _score: bs * 80, _method: 'Jaccard' });
+  }
+
+  // 8. Direct substring match (new engine)
+  const origLower = original.toLowerCase().trim();
+  if (origLower.length >= 3) {
+    let bs = -1; let bi: QAItem | null = null;
+    D.qa.forEach(item => {
+      (item.originalQuestions || []).forEach(q => {
+        const qL = q.toLowerCase().trim();
+        let s = 0;
+        if (qL.includes(origLower)) s = 0.9;
+        else if (origLower.includes(qL)) s = 0.7;
+        if (s > bs) { bs = s; bi = item; }
+      });
+    });
+    if (bs > 0.5 && bi) candidates.push({ item: bi, _score: bs * 85, _method: 'Substring' });
   }
 
   return candidates;
