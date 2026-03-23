@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { FaPaperPlane, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa6';
+import { FaPaperPlane, FaMicrophone, FaMicrophoneSlash, FaFaceSmile } from 'react-icons/fa6';
 
 interface InputAreaProps {
   onSend: (text: string) => void;
@@ -26,17 +26,14 @@ export default function InputArea({ onSend, disabled, placeholder }: InputAreaPr
     }
   }, [handleSend]);
 
-  // Voice input via Web Speech API
   const toggleVoice = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
-
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
       return;
     }
-
     const recognition = new SpeechRecognition();
     recognition.lang = 'bn-BD';
     recognition.continuous = false;
@@ -60,10 +57,13 @@ export default function InputArea({ onSend, disabled, placeholder }: InputAreaPr
   const hasSpeech = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-2.5 border-t border-border/30 flex-shrink-0 bg-card"
-      style={{ boxShadow: '0 -3px 14px rgba(0,0,0,0.05)' }}
-    >
+    <div className="flex items-center gap-1.5 px-2 py-1.5 flex-shrink-0 bg-card border-t border-border/20">
+      {/* Emoji placeholder */}
+      <button className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors rounded-full">
+        <FaFaceSmile size={20} />
+      </button>
+
+      {/* Input */}
       <input
         ref={inputRef}
         type="text"
@@ -72,28 +72,42 @@ export default function InputArea({ onSend, disabled, placeholder }: InputAreaPr
         onKeyDown={handleKeyPress}
         disabled={disabled}
         placeholder={placeholder}
-        className="flex-1 px-4 py-2.5 border-none rounded-3xl text-sm outline-none bg-background text-foreground font-bengali transition-all duration-200 focus:bg-card focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.05),0_0_0_3px_hsl(var(--primary)/0.18)]"
-        style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.07)' }}
+        className="flex-1 px-3 py-2 border-none rounded-2xl text-sm outline-none bg-background text-foreground font-bengali transition-all focus:ring-1 focus:ring-primary/20"
       />
-      {hasSpeech && (
+
+      {/* Mic or Send */}
+      {text.trim() ? (
+        <button
+          onClick={handleSend}
+          disabled={disabled}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground transition-all hover:scale-105 active:scale-95 disabled:opacity-45 flex-shrink-0"
+          style={{ background: 'var(--header-gradient)' }}
+        >
+          <FaPaperPlane size={16} />
+        </button>
+      ) : hasSpeech ? (
         <button
           onClick={toggleVoice}
           disabled={disabled}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-            isListening ? 'bg-sofia-red text-white animate-pulse' : 'bg-primary/10 text-primary hover:bg-primary/20'
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 ${
+            isListening
+              ? 'bg-destructive text-white animate-pulse'
+              : 'text-primary-foreground'
           } disabled:opacity-45`}
+          style={!isListening ? { background: 'var(--header-gradient)' } : undefined}
         >
           {isListening ? <FaMicrophoneSlash size={16} /> : <FaMicrophone size={16} />}
         </button>
+      ) : (
+        <button
+          onClick={handleSend}
+          disabled={true}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground opacity-45 flex-shrink-0"
+          style={{ background: 'var(--header-gradient)' }}
+        >
+          <FaPaperPlane size={16} />
+        </button>
       )}
-      <button
-        onClick={handleSend}
-        disabled={disabled || !text.trim()}
-        className="w-11 h-11 rounded-full flex items-center justify-center text-primary-foreground transition-all hover:scale-105 hover:-translate-y-0.5 active:scale-95 disabled:opacity-45 disabled:cursor-not-allowed disabled:transform-none flex-shrink-0"
-        style={{ background: 'var(--header-gradient)', boxShadow: '0 3px 10px hsl(var(--primary) / 0.4)' }}
-      >
-        <FaPaperPlane size={16} />
-      </button>
     </div>
   );
 }

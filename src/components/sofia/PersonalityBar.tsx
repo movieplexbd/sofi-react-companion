@@ -7,15 +7,15 @@ interface PersonalityBarProps {
 
 export default function PersonalityBar({ active, onSelect }: PersonalityBarProps) {
   return (
-    <div className="flex gap-1.5 px-3.5 py-2 border-b border-primary/10 flex-shrink-0 overflow-x-auto scrollbar-thin" style={{ background: 'hsl(var(--primary) / 0.06)' }}>
+    <div className="flex gap-1 px-3 py-1.5 border-b border-border/10 flex-shrink-0 overflow-x-auto scrollbar-thin bg-card/50">
       {Object.entries(PERSONALITIES).map(([key, p]) => (
         <button
           key={key}
           onClick={() => onSelect(key)}
-          className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap border-[1.5px] transition-all duration-200 active:scale-95 ${
+          className={`px-2.5 py-0.5 rounded-full text-[0.7rem] font-medium whitespace-nowrap transition-all duration-200 active:scale-95 ${
             active === key
-              ? 'bg-primary text-primary-foreground border-transparent'
-              : 'bg-transparent text-primary border-primary/25 hover:bg-primary/10'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary'
           }`}
         >
           {p.emoji} {p.label}

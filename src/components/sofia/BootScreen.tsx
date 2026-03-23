@@ -16,9 +16,7 @@ export default function BootScreen({ steps, progress, visible }: BootScreenProps
   const [opacity, setOpacity] = useState(1);
 
   useEffect(() => {
-    if (!visible) {
-      setOpacity(0);
-    }
+    if (!visible) setOpacity(0);
   }, [visible]);
 
   if (!visible && opacity === 0) return null;
@@ -27,27 +25,28 @@ export default function BootScreen({ steps, progress, visible }: BootScreenProps
     <div
       className="fixed inset-0 z-[999] flex flex-col items-center justify-center gap-4"
       style={{
-        background: 'linear-gradient(135deg, hsl(280 30% 96%), hsl(340 30% 96%))',
+        background: 'hsl(var(--primary))',
         opacity,
         transition: 'opacity 0.4s',
       }}
     >
       <div className="text-6xl animate-bounce-logo">🤖</div>
-      <div className="text-2xl font-bold text-primary">Sofia v4.0</div>
-      <div className="w-56 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.1)' }}>
+      <div className="text-2xl font-bold text-primary-foreground">Sofia AI</div>
+      <div className="text-sm text-primary-foreground/60">v4.0 · Ultra Intelligent</div>
+      <div className="w-56 h-1 rounded-full overflow-hidden bg-white/20 mt-2">
         <div
-          className="h-full rounded-full transition-[width] duration-400 ease-out"
-          style={{ width: `${progress}%`, background: 'var(--header-gradient)' }}
+          className="h-full rounded-full transition-[width] duration-400 ease-out bg-white"
+          style={{ width: `${progress}%` }}
         />
       </div>
-      <div className="flex flex-col gap-1.5 w-60">
+      <div className="flex flex-col gap-1.5 w-60 mt-2">
         {steps.map(step => (
           <div
             key={step.id}
             className={`text-xs flex items-center gap-2 transition-colors duration-300 ${
-              step.status === 'done' ? 'text-sofia-green' :
-              step.status === 'active' ? 'text-primary font-semibold' :
-              'text-muted-foreground'
+              step.status === 'done' ? 'text-green-300' :
+              step.status === 'active' ? 'text-white font-semibold' :
+              'text-white/40'
             }`}
           >
             {step.status === 'done' ? '✅' : '⏳'} {step.text}

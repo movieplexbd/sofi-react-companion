@@ -25,30 +25,23 @@ export default function SofiaChat() {
   const [extraMessages, setExtraMessages] = useState<Map<string, Message>>(new Map());
   const welcomeSent = useRef(false);
 
-  // Dark mode
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('sofia-dark', String(isDark));
   }, [isDark]);
 
-  // Language
   useEffect(() => { localStorage.setItem('sofia-lang', lang); }, [lang]);
 
-  // Send welcome message when data is loaded
   useEffect(() => {
     if (data && !loading && !welcomeSent.current) {
       welcomeSent.current = true;
-      const welcome = sofia.getWelcomeMessage();
-      // Directly add the welcome message
-      sofia.sendMessage(''); // This won't do anything since empty, but we need to trigger initial state
+      sofia.sendMessage('');
     }
   }, [data, loading]);
 
-  // Add welcome message
   useEffect(() => {
     if (data && !loading && sofia.messages.length === 0 && welcomeSent.current) {
       const welcome = sofia.getWelcomeMessage();
-      // We need to manually set this - let's use addExtraMessage
       sofia.addExtraMessage(welcome);
     }
   }, [data, loading, sofia.messages.length]);
@@ -56,7 +49,6 @@ export default function SofiaChat() {
   const handleSend = useCallback(async (text: string) => {
     const result = await sofia.sendMessage(text);
     if (result?.extraMessage) {
-      // Find the last bot message and associate extra with it
       setTimeout(() => {
         const lastBotMsg = [...sofia.messages].reverse().find(m => m.sender === 'bot');
         if (lastBotMsg) {
@@ -64,18 +56,16 @@ export default function SofiaChat() {
         }
       }, 100);
     }
-
-    // Show match badge briefly
     const lastMsg = sofia.messages[sofia.messages.length - 1];
     if (lastMsg?.score && lastMsg?.method) {
-      setMatchBadge(`${lastMsg.score}% match`);
-      setTimeout(() => setMatchBadge(null), 4000);
+      setMatchBadge(`${lastMsg.score}%`);
+      setTimeout(() => setMatchBadge(null), 3000);
     }
   }, [sofia]);
 
   const handleFeedbackWrapper = useCallback((key: string, isPositive: boolean, userQ?: string) => {
     handleFeedback(key, isPositive, userQ);
-    toast(isPositive ? '👍 ধন্যবাদ! আমি আরো ভালো হবো।' : '👎 Feedback দেওয়ার জন্য ধন্যবাদ!');
+    toast(isPositive ? '👍 ধন্যবাদ!' : '👎 Feedback দেওয়ার জন্য ধন্যবাদ!');
   }, [handleFeedback]);
 
   const handleClearChat = useCallback(() => {
@@ -90,7 +80,7 @@ export default function SofiaChat() {
     const rate = rt.stats.totalMessages > 0 ? Math.round(rt.stats.matchedCount / rt.stats.totalMessages * 100) : 0;
     sofia.addExtraMessage({
       id: `stats_${Date.now()}`, sender: 'bot', timestamp: new Date(),
-      text: `### 📊 Session Statistics\n\n| বিষয় | সংখ্যা |\n|---|---|\n| মোট Message | ${rt.stats.totalMessages} |\n| Match পেয়েছে | ${rt.stats.matchedCount} |\n| Match পায়নি | ${rt.stats.noMatchCount} |\n| Match Rate | ${rate}% |\n| Avg Score | ${Math.round(rt.stats.avgScore)}% |\n\n**Personality:** ${rt.personality} | **Topics:** ${rt.memory.topics.slice(-3).join(', ') || '—'}`,
+      text: `### 📊 Session Stats\n\n| Item | Count |\n|---|---|\n| Messages | ${rt.stats.totalMessages} |\n| Matched | ${rt.stats.matchedCount} |\n| No Match | ${rt.stats.noMatchCount} |\n| Rate | ${rate}% |\n| Avg Score | ${Math.round(rt.stats.avgScore)}% |`,
     });
   }, [sofia]);
 
@@ -99,7 +89,7 @@ export default function SofiaChat() {
     const n = cfg?.botName || 'Sofia';
     sofia.addExtraMessage({
       id: `info_${Date.now()}`, sender: 'bot', timestamp: new Date(),
-      text: `### 🤖 ${n} v${cfg?.version || '4.0'} — Engine Info\n\n**Search Engines (7টি):**\n- BM25 + BM25F (field-weighted)\n- TF-IDF\n- N-gram\n- Fuzzy (Levenshtein)\n- Phonetic (বাংলা)\n- Jaccard Similarity\n\n**Database:**\n- ${data?.qa.length || 0} QA\n- ${Object.keys(data?.syn || {}).length} Synonym Groups\n- ${Object.keys(data?.int || {}).length} Intents\n- ${Object.keys(data?.ent || {}).length} Entity Groups\n- ${Object.keys(data?.tpl || {}).length} Template Types`,
+      text: `### 🤖 ${n} v${cfg?.version || '4.0'}\n\n**7 Search Engines:**\nBM25 · BM25F · TF-IDF · N-gram · Fuzzy · Phonetic · Jaccard\n\n**Database:** ${data?.qa.length || 0} QA · ${Object.keys(data?.syn || {}).length} Synonyms · ${Object.keys(data?.int || {}).length} Intents · ${Object.keys(data?.ent || {}).length} Entities`,
     });
   }, [sofia, data]);
 
@@ -125,7 +115,7 @@ export default function SofiaChat() {
 
   const handlePersonalityChange = useCallback((p: string) => {
     sofia.setPersonality(p);
-    toast(`🎭 Personality: ${p}`);
+    toast(`🎭 ${p}`);
   }, [sofia]);
 
   const lowConf = data?.cfg.thresholds?.lowConfidence || 35;
@@ -134,7 +124,6 @@ export default function SofiaChat() {
   return (
     <div className="w-screen h-screen flex flex-col overflow-hidden bg-background font-bengali">
       <Toaster position="bottom-center" />
-
       <BootScreen steps={bootSteps} progress={bootProgress} visible={loading} />
 
       {!loading && (
