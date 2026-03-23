@@ -192,10 +192,18 @@ function applyPersonality(answer: string, personality: string): string {
 
 function getContextualInput(text: string, history: RuntimeState['history'], enabled: boolean): string {
   if (!enabled || !history.length) return text;
-  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ'];
-  const short = text.trim().split(/\s+/).length <= 4;
-  if (short && followUps.some(f => text.toLowerCase().includes(f)))
+  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ', 'আর', 'more', 'example', 'কি', 'সেটা', 'ওটা', 'এটা'];
+  const short = text.trim().split(/\s+/).length <= 5;
+  if (short && followUps.some(f => text.toLowerCase().includes(f))) {
+    // Combine last 2 history items for better context
+    const recent = history.slice(-2).map(h => h.q).join(' ');
+    return recent + ' ' + text;
+  }
+  // Pronouns referring to previous topic
+  const pronouns = ['সেটা', 'ওটা', 'এটা', 'it', 'that', 'this', 'সে', 'ঐটা'];
+  if (short && pronouns.some(p => text.toLowerCase().includes(p))) {
     return (history.at(-1)?.q || '') + ' ' + text;
+  }
   return text;
 }
 

@@ -1,4 +1,4 @@
-import { tokenize, phonetic, lev } from './textProcessing';
+import { tokenize, phonetic, lev, substringScore } from './textProcessing';
 import type { QAItem } from '../types/sofia';
 
 /* ═══ BM25 Model ═══ */
@@ -43,20 +43,28 @@ export function bm25Score(qtok: string[], di: number, m: BM25Model): number {
   return s;
 }
 
-/** BM25F — Field weighted scoring */
+/** BM25F — Field weighted scoring with enhanced weights */
 export function bm25FScore(qtok: string[], item: QAItem): number {
   const fields = [
-    { text: (item.processedQuestions || []).join(' '), w: 2.0 },
-    { text: item.answer || '', w: 0.4 },
-    { text: (item.tags || []).join(' '), w: 1.5 },
-    { text: item.category || '', w: 0.8 },
+    { text: (item.processedQuestions || []).join(' '), w: 2.5 },
+    { text: (item.originalQuestions || []).join(' '), w: 1.8 },
+    { text: item.answer || '', w: 0.3 },
+    { text: (item.tags || []).join(' '), w: 1.8 },
+    { text: item.category || '', w: 1.0 },
   ];
   let total = 0;
   fields.forEach(({ text, w }) => {
     const toks = tokenize(text), len = toks.length || 1;
     const tf: Record<string, number> = {};
     toks.forEach(t => (tf[t] = (tf[t] || 0) + 1));
-    qtok.forEach(q => { if (tf[q]) total += (tf[q] / len) * w; });
+    qtok.forEach(q => {
+      if (tf[q]) total += (tf[q] / len) * w;
+      // Partial match boost
+      else {
+        const partial = toks.filter(t => t.includes(q) || q.includes(t));
+        if (partial.length) total += (partial.length / len) * w * 0.4;
+      }
+    });
   });
   return total;
 }
@@ -71,7 +79,7 @@ export interface TFIDFModel {
 export function buildTFIDF(qa: QAItem[]): TFIDFModel | null {
   if (!qa?.length) return null;
   const docs = qa.map(item => ({
-    tokens: tokenize((item.processedQuestions || []).join(' ')),
+    tokens: tokenize((item.processedQuestions || []).join(' ') + ' ' + (item.originalQuestions || []).join(' ')),
     item,
   }));
   const df: Record<string, number> = {};
@@ -111,40 +119,55 @@ export function ngramSim(a: string[], b: string[]): number {
   const uU = new Set(a), dU = new Set(b);
   const bm = [...uB].filter(g => dB.has(g)).length;
   const um = [...uU].filter(w => dU.has(w)).length;
+  // Also check trigrams for longer queries
+  let triScore = 0;
+  if (a.length >= 3 && b.length >= 3) {
+    const uT = new Set(ngrams(a, 3)), dT = new Set(ngrams(b, 3));
+    triScore = [...uT].filter(g => dT.has(g)).length * 3;
+  }
   const d = uB.size + uU.size;
-  return d > 0 ? (bm * 2 + um) / d : 0;
+  return d > 0 ? (bm * 2 + um + triScore) / d : 0;
 }
 
-/* ═══ Jaccard ═══ */
+/* ═══ Jaccard with partial match ═══ */
 export function jaccard(a: string[], b: string[]): number {
   const sA = new Set(a), sB = new Set(b);
-  const inter = [...sA].filter(x => sB.has(x)).length;
+  let inter = [...sA].filter(x => sB.has(x)).length;
+  // Partial word matching bonus
+  const unmatched = [...sA].filter(x => !sB.has(x));
+  unmatched.forEach(w => {
+    const partialMatch = [...sB].some(bw => bw.includes(w) || w.includes(bw));
+    if (partialMatch) inter += 0.5;
+  });
   const union = new Set([...sA, ...sB]).size;
   return union > 0 ? inter / union : 0;
 }
 
-/* ═══ Fuzzy search ═══ */
+/* ═══ Fuzzy search — enhanced ═══ */
 export function fuzzyBest(
   original: string, qa: QAItem[], threshold: number
 ): { item: QAItem; score: number } | null {
-  if (original.trim().length < 4) return null;
+  if (original.trim().length < 3) return null;
   let bs = -1;
   let bi: QAItem | null = null;
   const uL = original.toLowerCase().trim();
   qa.forEach(item =>
     (item.originalQuestions || []).forEach(q => {
-      const sim = 1 - lev(uL, q.toLowerCase().trim()) / Math.max(uL.length, q.length, 1);
+      const qL = q.toLowerCase().trim();
+      const levSim = 1 - lev(uL, qL) / Math.max(uL.length, qL.length, 1);
+      const subSim = substringScore(uL, qL);
+      const sim = Math.max(levSim, subSim);
       if (sim > bs) { bs = sim; bi = item; }
     })
   );
-  return bs >= threshold && bi ? { item: bi, score: bs * 70 } : null;
+  return bs >= threshold && bi ? { item: bi, score: bs * 75 } : null;
 }
 
 /* ═══ Phonetic search ═══ */
 export function phoneticBest(
   original: string, qa: QAItem[], threshold: number
 ): { item: QAItem; score: number } | null {
-  if (original.trim().length < 4) return null;
+  if (original.trim().length < 3) return null;
   let bs = -1;
   let bi: QAItem | null = null;
   const uPh = phonetic(original.toLowerCase());
@@ -155,5 +178,5 @@ export function phoneticBest(
       if (sim > bs) { bs = sim; bi = item; }
     })
   );
-  return bs >= threshold && bi ? { item: bi, score: bs * 65 } : null;
+  return bs >= threshold && bi ? { item: bi, score: bs * 70 } : null;
 }
