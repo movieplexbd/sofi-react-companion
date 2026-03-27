@@ -6,37 +6,32 @@
 
 @layer base {
   :root {
-    --background: 120 18% 93%;
-    --foreground: 0 0% 15%;
+    --background: 0 0% 97%;
+    --foreground: 0 0% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
+    --card-foreground: 0 0% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-    --primary: 142 70% 30%;
+    --popover-foreground: 0 0% 12%;
+    --primary: 346 77% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 142 50% 42%;
+    --secondary: 346 60% 65%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 120 10% 90%;
+    --muted: 340 15% 93%;
     --muted-foreground: 0 0% 46%;
-    --accent: 142 50% 42%;
+    --accent: 346 60% 65%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 120 10% 85%;
-    --input: 120 10% 85%;
-    --ring: 142 70% 30%;
-    --radius: 0.5rem;
+    --border: 340 10% 88%;
+    --input: 340 10% 88%;
+    --ring: 346 77% 55%;
+    --radius: 0.75rem;
 
-    --sofia-green: 142 70% 35%;
-    --sofia-red: 0 66% 47%;
-    --sofia-orange: 24 100% 45%;
-    --sofia-blue: 199 96% 37%;
-
-    --header-gradient: linear-gradient(135deg, hsl(142 70% 32%) 0%, hsl(142 50% 38%) 100%);
-    --user-bubble: 142 70% 35%;
+    --header-gradient: linear-gradient(135deg, hsl(346 77% 52%) 0%, hsl(0 80% 60%) 100%);
+    --user-bubble: 346 77% 55%;
     --bot-bubble: 0 0% 100%;
-    --chat-bg: 120 20% 87%;
-    --chat-wallpaper: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300000008'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    --chat-bg: 340 20% 94%;
+    --chat-wallpaper: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f4739420'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3Ccircle cx='10' cy='10' r='1.5'/%3E%3Ccircle cx='50' cy='50' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -49,31 +44,31 @@
   }
 
   .dark {
-    --background: 200 10% 10%;
-    --foreground: 0 0% 90%;
-    --card: 200 10% 14%;
-    --card-foreground: 0 0% 90%;
-    --popover: 200 10% 14%;
-    --popover-foreground: 0 0% 90%;
-    --primary: 142 60% 40%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 92%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 92%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 346 70% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 142 40% 50%;
+    --secondary: 346 50% 45%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 200 8% 18%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 142 40% 50%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 346 50% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
-    --border: 200 8% 22%;
-    --input: 200 8% 22%;
-    --ring: 142 60% 40%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 346 70% 50%;
 
-    --header-gradient: linear-gradient(135deg, hsl(142 50% 22%) 0%, hsl(142 40% 28%) 100%);
-    --user-bubble: 142 50% 28%;
-    --bot-bubble: 200 10% 18%;
-    --chat-bg: 200 10% 8%;
-    --chat-wallpaper: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    --header-gradient: linear-gradient(135deg, hsl(346 60% 35%) 0%, hsl(0 60% 40%) 100%);
+    --user-bubble: 346 60% 38%;
+    --bot-bubble: 0 0% 16%;
+    --chat-bg: 0 0% 6%;
+    --chat-wallpaper: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff06'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3Ccircle cx='10' cy='10' r='1.5'/%3E%3Ccircle cx='50' cy='50' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 }
 
@@ -94,8 +89,8 @@
     to { opacity: 1; transform: none; }
   }
   @keyframes pdot {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(76,175,80,.3); }
-    50% { box-shadow: 0 0 0 5px rgba(76,175,80,0); }
+    0%, 100% { box-shadow: 0 0 0 2px rgba(236,72,153,.3); }
+    50% { box-shadow: 0 0 0 5px rgba(236,72,153,0); }
   }
   @keyframes tdot {
     0%, 100% { opacity: 0.2; transform: translateY(0); }
@@ -107,6 +102,10 @@
   }
   @keyframes spin-slow {
     to { transform: rotate(360deg); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(3deg); }
   }
 
   .animate-fade-up {
@@ -121,9 +120,19 @@
   .animate-bounce-logo {
     animation: bounce-logo 1.2s infinite;
   }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
 
-  .wa-wallpaper {
+  .chat-wallpaper {
     background-color: hsl(var(--chat-bg));
     background-image: var(--chat-wallpaper);
   }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.3); border-radius: 2px; }
 }
