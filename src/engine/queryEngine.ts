@@ -140,10 +140,45 @@ function ensembleVote(
 
 function memBoost(item: QAItem, memory: RuntimeState['memory']): number {
   let b = 1;
-  memory.topics.slice(-3).forEach(t => {
-    if (item.category === t || (item.tags || []).includes(t)) b += 0.2;
+  // Recent topics get higher boost (recency weighting)
+  const recentTopics = memory.topics.slice(-5);
+  recentTopics.forEach((t, i) => {
+    const recencyWeight = 0.1 + (i / recentTopics.length) * 0.25; // newer = more boost
+    if (item.category === t) b += recencyWeight;
+    if ((item.tags || []).some(tag => tag === t)) b += recencyWeight * 0.6;
+  });
+  // Entity match boost
+  Object.values(memory.entities).forEach(vals => {
+    const itemText = (item.originalQuestions || []).join(' ') + ' ' + item.answer;
+    vals.forEach(v => { if (itemText.toLowerCase().includes(v.toLowerCase())) b += 0.15; });
   });
   return b;
+}
+
+/** Generate smart follow-up questions based on context */
+function generateFollowUps(
+  item: QAItem, history: RuntimeState['history'], qa: QAItem[]
+): string[] {
+  const followUps: string[] = [];
+  // Same category questions user hasn't asked
+  const askedQs = new Set(history.map(h => h.q.toLowerCase()));
+  const sameCat = qa.filter(q =>
+    q.category === item.category &&
+    q.firebaseKey !== item.firebaseKey &&
+    !(q.originalQuestions || []).some(oq => askedQs.has(oq.toLowerCase()))
+  );
+  // Pick up to 3 related unasked questions
+  const wt = tokenize((item.processedQuestions || []).join(' '));
+  sameCat
+    .map(q => ({
+      q, score: jaccard(wt, tokenize((q.processedQuestions || []).join(' ')))
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .filter(x => x.score > 0.05)
+    .forEach(x => followUps.push((x.q.originalQuestions || ['?'])[0]));
+
+  return followUps;
 }
 
 function findRelated(item: QAItem, qa: QAItem[], topN = 3): string[] {
@@ -192,18 +227,36 @@ function applyPersonality(answer: string, personality: string): string {
 
 function getContextualInput(text: string, history: RuntimeState['history'], enabled: boolean): string {
   if (!enabled || !history.length) return text;
-  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ', 'আর', 'more', 'example', 'কি', 'সেটা', 'ওটা', 'এটা'];
-  const short = text.trim().split(/\s+/).length <= 5;
-  if (short && followUps.some(f => text.toLowerCase().includes(f))) {
-    // Combine last 2 history items for better context
-    const recent = history.slice(-2).map(h => h.q).join(' ');
+  const lower = text.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+  const short = words.length <= 5;
+
+  // Follow-up keywords — user wants more about same topic
+  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ', 'আর', 'more', 'example', 'কি', 'সেটা', 'ওটা', 'এটা', 'আরেকটু', 'কিরকম', 'মানে', 'meaning', 'বুঝিয়ে', 'তাহলে', 'then', 'so', 'অর্থ'];
+  if (short && followUps.some(f => lower.includes(f))) {
+    const recent = history.slice(-3).map(h => h.q).join(' ');
     return recent + ' ' + text;
   }
+
   // Pronouns referring to previous topic
-  const pronouns = ['সেটা', 'ওটা', 'এটা', 'it', 'that', 'this', 'সে', 'ঐটা'];
-  if (short && pronouns.some(p => text.toLowerCase().includes(p))) {
-    return (history.at(-1)?.q || '') + ' ' + text;
+  const pronouns = ['সেটা', 'ওটা', 'এটা', 'it', 'that', 'this', 'সে', 'ঐটা', 'তার', 'এর', 'ওর', 'ঐ', 'its', 'these', 'those'];
+  if (short && pronouns.some(p => lower.includes(p))) {
+    const recentQ = history.at(-1)?.q || '';
+    const recentCat = history.at(-1)?.category || '';
+    return recentQ + ' ' + recentCat + ' ' + text;
   }
+
+  // Topic continuation — if new question shares words with recent history
+  if (history.length >= 1) {
+    const recentTokens = tokenize(history.slice(-2).map(h => h.q).join(' '));
+    const currentTokens = tokenize(text);
+    const overlap = currentTokens.filter(t => recentTokens.includes(t));
+    if (overlap.length > 0 && short) {
+      // Enrich with last question's context
+      return history.at(-1)!.q + ' ' + text;
+    }
+  }
+
   return text;
 }
 
@@ -425,6 +478,18 @@ export function createSofiaEngine(
     // Hybrid search
     let candidates = hybridSearch(processed, correctedText, tokens, expandedToks, bm25M, tfidfM, D);
     candidates = ctxBoost(candidates);
+
+    // History-aware boost: if user is continuing a topic, boost matching category
+    if (RT.history.length >= 1) {
+      const lastCat = RT.history.at(-1)?.category;
+      if (lastCat) {
+        candidates = candidates.map(c => ({
+          ...c,
+          _score: c.item?.category === lastCat ? c._score * 1.25 : c._score,
+        }));
+      }
+    }
+
     const ranked = ensembleVote(candidates, entities, RT.memory, D.cfg);
 
     if (ranked.length) {
@@ -438,13 +503,20 @@ export function createSofiaEngine(
       updateMemory(inputText, answer, entities, winner.item.category);
       RT.lastAnswer = winner.item.answer; RT.lastUserQ = inputText;
       RT.history.push({ q: inputText, a: winner.item.answer, category: winner.item.category, time: Date.now() });
-      if (RT.history.length > 20) RT.history.shift();
+      if (RT.history.length > 30) RT.history.shift(); // increased history from 20 to 30
+
       await logAnalytics(inputText, methodStr, rawScore);
+
+      // Smart follow-ups: combine related questions + context-aware suggestions
       const related = feat(D.cfg, 'relatedQuestions') ? findRelated(winner.item, D.qa) : [];
+      const followUps = generateFollowUps(winner.item, RT.history, D.qa);
+      const smartSuggestions = [...new Set([...followUps, ...related])].slice(0, 4);
+
       return {
         answer: prefix + answer, firebaseKey: winner.item.firebaseKey,
         method: methodStr, score: rawScore, sentiment,
-        related: related.length ? related : null,
+        related: smartSuggestions.length ? smartSuggestions : null,
+        quickReplies: followUps.length ? followUps.slice(0, 2) : null,
         spellCorrected: spellResult.corrected, originalText: spellResult.original,
       };
     }
