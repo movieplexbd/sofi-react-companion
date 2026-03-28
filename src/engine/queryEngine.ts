@@ -192,18 +192,36 @@ function applyPersonality(answer: string, personality: string): string {
 
 function getContextualInput(text: string, history: RuntimeState['history'], enabled: boolean): string {
   if (!enabled || !history.length) return text;
-  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ', 'আর', 'more', 'example', 'কি', 'সেটা', 'ওটা', 'এটা'];
-  const short = text.trim().split(/\s+/).length <= 5;
-  if (short && followUps.some(f => text.toLowerCase().includes(f))) {
-    // Combine last 2 history items for better context
-    const recent = history.slice(-2).map(h => h.q).join(' ');
+  const lower = text.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+  const short = words.length <= 5;
+
+  // Follow-up keywords — user wants more about same topic
+  const followUps = ['আরো', 'বিস্তারিত', 'আরও', 'বলো', 'বলুন', 'কেন', 'কীভাবে', 'কিভাবে', 'explain', 'details', 'why', 'how', 'উদাহরণ', 'আর', 'more', 'example', 'কি', 'সেটা', 'ওটা', 'এটা', 'আরেকটু', 'কিরকম', 'মানে', 'meaning', 'বুঝিয়ে', 'তাহলে', 'then', 'so', 'অর্থ'];
+  if (short && followUps.some(f => lower.includes(f))) {
+    const recent = history.slice(-3).map(h => h.q).join(' ');
     return recent + ' ' + text;
   }
+
   // Pronouns referring to previous topic
-  const pronouns = ['সেটা', 'ওটা', 'এটা', 'it', 'that', 'this', 'সে', 'ঐটা'];
-  if (short && pronouns.some(p => text.toLowerCase().includes(p))) {
-    return (history.at(-1)?.q || '') + ' ' + text;
+  const pronouns = ['সেটা', 'ওটা', 'এটা', 'it', 'that', 'this', 'সে', 'ঐটা', 'তার', 'এর', 'ওর', 'ঐ', 'its', 'these', 'those'];
+  if (short && pronouns.some(p => lower.includes(p))) {
+    const recentQ = history.at(-1)?.q || '';
+    const recentCat = history.at(-1)?.category || '';
+    return recentQ + ' ' + recentCat + ' ' + text;
   }
+
+  // Topic continuation — if new question shares words with recent history
+  if (history.length >= 1) {
+    const recentTokens = tokenize(history.slice(-2).map(h => h.q).join(' '));
+    const currentTokens = tokenize(text);
+    const overlap = currentTokens.filter(t => recentTokens.includes(t));
+    if (overlap.length > 0 && short) {
+      // Enrich with last question's context
+      return history.at(-1)!.q + ' ' + text;
+    }
+  }
+
   return text;
 }
 
