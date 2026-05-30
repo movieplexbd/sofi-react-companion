@@ -47,9 +47,21 @@ function makeId() { return `msg_${Date.now()}_${++msgCounter}`; }
 
 export function useSofia(data: DataStore | null, db: Database | null) {
   const rtRef = useRef<RuntimeState>(createInitialRuntime());
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const raw = localStorage.getItem(MSG_STORAGE_KEY);
+      if (!raw) return [];
+      return (JSON.parse(raw) as Message[]).map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+    } catch { return []; }
+  });
   const [isTyping, setIsTyping] = useState(false);
-  const [personality, setPersonalityState] = useState('friendly');
+  const [personality, setPersonalityState] = useState(rtRef.current.personality);
+
+  // Persist messages + runtime memory after each update
+  useEffect(() => {
+    try { localStorage.setItem(MSG_STORAGE_KEY, JSON.stringify(messages.slice(-100))); } catch { /* quota */ }
+    persistRuntime(rtRef.current);
+  }, [messages]);
 
   const engine = useMemo(() => {
     if (!data) return null;
