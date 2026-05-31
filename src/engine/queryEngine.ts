@@ -540,5 +540,5 @@ export function createSofiaEngine(
     return { answer: noMatch(inputText), method: null, score: 0, sentiment };
   }
 
-  return { getReply, bm25M, tfidfM, coMatrix, rebuildModels };
+  return { getReply, bm25M, tfidfM, coMatrix, rebuildModels, intel };
 }
