@@ -305,6 +305,7 @@ export function createSofiaEngine(
   let bm25M = buildBM25(D.qa);
   let tfidfM = buildTFIDF(D.qa);
   let coMatrix = buildCoOccurrence(D.qa);
+  const intel = createIntelligence(D.syn);
 
   function rebuildModels() {
     bm25M = buildBM25(D.qa);
