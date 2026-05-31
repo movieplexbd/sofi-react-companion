@@ -2,14 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Redirecting...</title>
+    <title>Sofi - React Companion</title>
     <script type="text/javascript">
-      var pathSegmentsToKeep = 1;
+      var segmentsToKeep = 1;
       var l = window.location;
-      sessionStorage.redirect = l.pathname + l.search + l.hash;
       l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/'
+        l.protocol + '//' + l.host + '/' +
+        l.pathname.split('/').slice(0, 1 + segmentsToKeep).join('/') +
+        '/?p=/' + l.pathname.split('/').slice(1 + segmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
       );
     </script>
   </head>
