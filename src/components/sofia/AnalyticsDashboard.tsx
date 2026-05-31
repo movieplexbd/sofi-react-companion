@@ -1,16 +1,18 @@
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts';
 import type { RuntimeState } from '../../types/sofia';
+import type { IntelligenceAPI } from '../../engine/intelligence';
 
 interface AnalyticsDashboardProps {
   visible: boolean;
   onClose: () => void;
   runtime: RuntimeState;
+  intel?: IntelligenceAPI | null;
 }
 
 const COLORS = ['#6A1B9A', '#AD1457', '#0277BD', '#2E7D32', '#E65100', '#C62828', '#4527A0'];
 
-export default function AnalyticsDashboard({ visible, onClose, runtime }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ visible, onClose, runtime, intel }: AnalyticsDashboardProps) {
   const stats = runtime.stats;
   const history = runtime.history;
 
