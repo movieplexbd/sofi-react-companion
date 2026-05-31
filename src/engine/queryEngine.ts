@@ -538,6 +538,10 @@ export function createSofiaEngine(
 
       await logAnalytics(inputText, methodStr, rawScore);
 
+      // Phase 6+7: record interaction for adaptive learning + topic memory
+      intel.recordShown(inputText, winner.item.firebaseKey ?? null);
+      intel.recordTurn(inputText, winner.item.answer, winner.item.category, uq.normalized.tokens);
+
       // Smart follow-ups: combine related questions + context-aware suggestions
       const related = feat(D.cfg, 'relatedQuestions') ? findRelated(winner.item, D.qa) : [];
       const followUps = generateFollowUps(winner.item, RT.history, D.qa);
