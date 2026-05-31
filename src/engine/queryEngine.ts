@@ -13,6 +13,7 @@ import type { QAItem, DataStore, RuntimeState, AnalyticsEntry } from '../types/s
 import { PERSONALITIES } from '../constants/personalities';
 import { getDatabase, ref, get, push, set, update, serverTimestamp } from 'firebase/database';
 import type { Database } from 'firebase/database';
+import { createIntelligence, type RawCandidate, type EngineName } from './intelligence';
 
 // Helper functions
 const feat = (cfg: DataStore['cfg'], k: string) => cfg.features?.[k] !== false;
@@ -293,6 +294,7 @@ export interface SofiaEngine {
   tfidfM: TFIDFModel | null;
   coMatrix: CoMatrix;
   rebuildModels: () => void;
+  intel: ReturnType<typeof createIntelligence>;
 }
 
 export function createSofiaEngine(
@@ -303,6 +305,7 @@ export function createSofiaEngine(
   let bm25M = buildBM25(D.qa);
   let tfidfM = buildTFIDF(D.qa);
   let coMatrix = buildCoOccurrence(D.qa);
+  const intel = createIntelligence(D.syn);
 
   function rebuildModels() {
     bm25M = buildBM25(D.qa);
@@ -480,6 +483,12 @@ export function createSofiaEngine(
       }
     }
 
+    // ── Intelligence Layer (Phase 1+2+3+7): query understanding + follow-up resolution ──
+    const uq = intel.understand(inputText);
+
+    // Cache check (Phase 9)
+    const cached = intel.cacheGet(uq.contextualText);
+
     // Hybrid search
     let candidates = hybridSearch(processed, correctedText, tokens, expandedToks, bm25M, tfidfM, D);
     candidates = ctxBoost(candidates);
@@ -495,7 +504,24 @@ export function createSofiaEngine(
       }
     }
 
-    const ranked = ensembleVote(candidates, entities, RT.memory, D.cfg);
+    // ── Phase 5+6+8: multi-stage intelligent re-rank ──
+    const intelCandidates: RawCandidate[] = candidates.map(c => ({
+      item: c.item, score: c._score, engine: c._method as EngineName,
+    }));
+    const intelRanked = cached ?? intel.rankCandidates(intelCandidates, uq);
+    if (!cached && intelRanked.length) intel.cacheSet(uq.contextualText, intelRanked);
+
+    // Merge: prefer intelligence ranking when it has results; fall back to ensembleVote
+    const legacyRanked = ensembleVote(candidates, entities, RT.memory, D.cfg);
+    const ranked = intelRanked.length
+      ? intelRanked.map(r => ({
+          item: r.item,
+          finalScore: r.finalScore,
+          methods: r.engines as string[],
+          score: r.finalScore,
+          count: r.engines.length,
+        }))
+      : legacyRanked;
 
     if (ranked.length) {
       const winner = ranked[0];
@@ -511,6 +537,10 @@ export function createSofiaEngine(
       if (RT.history.length > 30) RT.history.shift(); // increased history from 20 to 30
 
       await logAnalytics(inputText, methodStr, rawScore);
+
+      // Phase 6+7: record interaction for adaptive learning + topic memory
+      intel.recordShown(inputText, winner.item.firebaseKey ?? null);
+      intel.recordTurn(inputText, winner.item.answer, winner.item.category, uq.normalized.tokens);
 
       // Smart follow-ups: combine related questions + context-aware suggestions
       const related = feat(D.cfg, 'relatedQuestions') ? findRelated(winner.item, D.qa) : [];
@@ -537,5 +567,5 @@ export function createSofiaEngine(
     return { answer: noMatch(inputText), method: null, score: 0, sentiment };
   }
 
-  return { getReply, bm25M, tfidfM, coMatrix, rebuildModels };
+  return { getReply, bm25M, tfidfM, coMatrix, rebuildModels, intel };
 }
