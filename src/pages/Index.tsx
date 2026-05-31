@@ -181,6 +181,7 @@ export default function SofiaChat() {
             visible={analyticsVisible}
             onClose={() => setAnalyticsVisible(false)}
             runtime={sofia.runtime}
+            intel={sofia.intel}
           />
         </>
       )}
