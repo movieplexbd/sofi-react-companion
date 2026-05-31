@@ -180,5 +180,6 @@ export function useSofia(data: DataStore | null, db: Database | null) {
     sendMessage, clearChat, setPersonality,
     addReaction, retryMessage, addExtraMessage,
     getWelcomeMessage, runtime: rtRef.current, data,
+    intel: engine?.intel ?? null,
   };
 }
