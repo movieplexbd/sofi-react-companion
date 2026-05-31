@@ -67,8 +67,8 @@ export interface IntelligenceAPI {
 export function createIntelligence(userSyn: Record<string, string[]> = {}): IntelligenceAPI {
   const graph  = buildDefaultGraph();
   const memory = new ContextMemory();
-  const resultCache = new LRUCache<string, RankedResult[]>(80);
-  const queryCache  = new LRUCache<string, UnderstoodQuery>(120);
+  const resultCache = new LRUCache<string, RankedResult[]>(80, 'results');
+  const queryCache  = new LRUCache<string, UnderstoodQuery>(120, 'queries');
 
   function understand(text: string): UnderstoodQuery {
     const cached = queryCache.get(text);
@@ -123,10 +123,11 @@ export function createIntelligence(userSyn: Record<string, string[]> = {}): Inte
     clearCaches: () => { resultCache.clear(); queryCache.clear(); },
     getDiagnostics: () => ({
       weights: getAllWeights(),
-      memory: memory.snapshot(),
-      feedback: { topQueries: topQueries(), topClicked: topClicked() },
+      memory: { ...memory.snapshot(), usage: JSON.stringify(memory.snapshot()).length + JSON.stringify(graph.serialize()).length },
+      feedback: { topQueries: topQueries(20), topClicked: topClicked(20), full: snapshot() },
       cache: { result: resultCache.stats(), query: queryCache.stats() },
       graphSize: graph.size(),
+      graph: graph.serialize(),
     }),
     resetLearning: () => { resetWeights(); clearFeedback(); memory.clear(); resultCache.clear(); queryCache.clear(); void snapshot; },
     graph, memory,

@@ -15,8 +15,35 @@ export interface KGNode {
   relations: string[]; // names of related nodes
 }
 
+const STORAGE_KEY = 'sofia_kg_v1';
+
 export class KnowledgeGraph {
   private nodes = new Map<string, KGNode>();
+
+  constructor() {
+    this.load();
+  }
+
+  private load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const data: KGNode[] = JSON.parse(raw);
+        data.forEach(n => this.nodes.set(n.name.toLowerCase(), n));
+      }
+    } catch { /* ignore */ }
+  }
+
+  private save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...this.nodes.values()]));
+    } catch { /* ignore */ }
+  }
+
+  deleteEntity(name: string) {
+    this.nodes.delete(name.toLowerCase());
+    this.save();
+  }
 
   addEntity(name: string, categories: string[] = [], relations: string[] = []) {
     const key = name.toLowerCase();
@@ -27,11 +54,13 @@ export class KnowledgeGraph {
     } else {
       this.nodes.set(key, { name, categories: [...categories], relations: [...relations] });
     }
+    this.save();
   }
 
   addRelation(a: string, b: string) {
     this.addEntity(a, [], [b]);
     this.addEntity(b, [], [a]);
+    this.save();
   }
 
   get(name: string): KGNode | undefined { return this.nodes.get(name.toLowerCase()); }
@@ -67,6 +96,7 @@ export class KnowledgeGraph {
 /* ── Seed graph with a small example set — extendable ── */
 export function buildDefaultGraph(): KnowledgeGraph {
   const g = new KnowledgeGraph();
+  if (g.size() > 0) return g;
   // Animals
   g.addEntity('lion',   ['animal', 'mammal', 'wildlife']);
   g.addEntity('tiger',  ['animal', 'mammal', 'wildlife']);

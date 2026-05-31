@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts';
 import type { RuntimeState } from '../../types/sofia';
 import type { IntelligenceAPI } from '../../engine/intelligence';
@@ -15,6 +15,8 @@ const COLORS = ['#6A1B9A', '#AD1457', '#0277BD', '#2E7D32', '#E65100', '#C62828'
 export default function AnalyticsDashboard({ visible, onClose, runtime, intel }: AnalyticsDashboardProps) {
   const stats = runtime.stats;
   const history = runtime.history;
+  const [kgTab, setKgTab] = useState<'view' | 'add'>('view');
+  const [newEntity, setNewEntity] = useState({ name: '', categories: '', relations: '' });
 
   // Method distribution from history
   const methodData = useMemo(() => {
@@ -36,6 +38,61 @@ export default function AnalyticsDashboard({ visible, onClose, runtime, intel }:
     return Object.entries(buckets).slice(-10).map(([time, count]) => ({ time, count }));
   }, [history]);
 
+  const handleExport = (format: 'json' | 'csv') => {
+    if (!intel) return;
+    const diag = intel.getDiagnostics();
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      stats: runtime.stats,
+      topQueries: diag.feedback.topQueries,
+      clickedResults: diag.feedback.topClicked,
+      engineWeights: diag.weights,
+      cacheStats: diag.cache,
+      memoryUsage: diag.memory.usage,
+      graphSize: diag.graphSize,
+      history: runtime.history
+    };
+
+    let blob: Blob;
+    let filename: string;
+
+    if (format === 'json') {
+      blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      filename = `sofia-analytics-${Date.now()}.json`;
+    } else {
+      const rows = [
+        ['Type', 'Key/Query', 'Value/Count'],
+        ['Memory Usage', '', diag.memory.usage],
+        ['Graph Size', '', diag.graphSize],
+        ...Object.entries(diag.weights).map(([k, v]) => ['Engine Weight', k, v]),
+        ...diag.feedback.topQueries.map(q => ['Top Query', q.query, q.count]),
+        ...diag.feedback.topClicked.map(c => ['Top Clicked', c.key, c.clicks])
+      ];
+      const csvContent = rows.map(r => r.join(',')).join('\n');
+      blob = new Blob([csvContent], { type: 'text/csv' });
+      filename = `sofia-analytics-${Date.now()}.csv`;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAddEntity = () => {
+    if (!intel || !newEntity.name) return;
+    intel.graph.addEntity(
+      newEntity.name,
+      newEntity.categories.split(',').map(s => s.trim()).filter(Boolean),
+      newEntity.relations.split(',').map(s => s.trim()).filter(Boolean)
+    );
+    setNewEntity({ name: '', categories: '', relations: '' });
+    setKgTab('view');
+    intel.clearCaches(); // Apply changes immediately
+  };
+
   const rate = stats.totalMessages > 0 ? Math.round(stats.matchedCount / stats.totalMessages * 100) : 0;
 
   if (!visible) return null;
@@ -48,7 +105,11 @@ export default function AnalyticsDashboard({ visible, onClose, runtime, intel }:
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-primary">📊 Analytics Dashboard</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl">✕</button>
+          <div className="flex gap-2">
+            <button onClick={() => handleExport('json')} className="text-xs bg-secondary px-2 py-1 rounded hover:bg-secondary/80">JSON</button>
+            <button onClick={() => handleExport('csv')} className="text-xs bg-secondary px-2 py-1 rounded hover:bg-secondary/80">CSV</button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl ml-2">✕</button>
+          </div>
         </div>
 
         {/* Stats cards */}
@@ -66,38 +127,7 @@ export default function AnalyticsDashboard({ visible, onClose, runtime, intel }:
           ))}
         </div>
 
-        {/* Category pie chart */}
-        {methodData.length > 0 && (
-          <div className="mb-5">
-            <h3 className="text-sm font-semibold text-foreground mb-2">Top Categories</h3>
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={methodData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name }) => name}>
-                  {methodData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Timeline */}
-        {timelineData.length > 1 && (
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-2">Messages Over Time</h3>
-            <ResponsiveContainer width="100%" height={150}>
-              <LineChart data={timelineData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="hsl(280 70% 36%)" strokeWidth={2} dot={{ fill: 'hsl(280 70% 36%)' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* ── Phase 10: Intelligence Diagnostics ── */}
+        {/* Intelligence Diagnostics */}
         {intel && (() => {
           const diag = intel.getDiagnostics();
           const weightData = Object.entries(diag.weights).map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }));
@@ -133,30 +163,63 @@ export default function AnalyticsDashboard({ visible, onClose, runtime, intel }:
                 </div>
               </div>
 
-              {/* Top topics & queries */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <div className="font-semibold mb-1">Top Topics</div>
-                  <ul className="space-y-0.5 text-muted-foreground">
-                    {diag.memory.topTopics.slice(0, 5).map((t, i) => (
-                      <li key={i}>• {t.topic} <span className="opacity-60">({t.count})</span></li>
-                    )) || <li>—</li>}
-                  </ul>
-                </div>
-                <div>
-                  <div className="font-semibold mb-1">Top Queries</div>
-                  <ul className="space-y-0.5 text-muted-foreground">
-                    {diag.feedback.topQueries.slice(0, 5).map((q, i) => (
-                      <li key={i} className="truncate">• {q.query} <span className="opacity-60">({q.count})</span></li>
-                    ))}
-                    {!diag.feedback.topQueries.length && <li>—</li>}
-                  </ul>
-                </div>
+              {/* Memory & Graph Info */}
+              <div className="bg-secondary/20 rounded-lg p-3 text-xs space-y-1">
+                <div className="flex justify-between"><span>Memory Usage:</span> <b>{diag.memory.usage} bytes</b></div>
+                <div className="flex justify-between"><span>Graph Entities:</span> <b>{diag.graphSize}</b></div>
+                <div className="flex justify-between"><span>Current Topic:</span> <b>{diag.memory.currentTopic || '—'}</b></div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Graph Entities: <b className="text-foreground">{diag.graphSize}</b></span>
-                <span>Current Topic: <b className="text-foreground">{diag.memory.currentTopic || '—'}</b></span>
+              {/* Knowledge Graph UI */}
+              <div className="border border-border rounded-xl overflow-hidden">
+                <div className="flex bg-muted text-[10px] font-bold uppercase tracking-wider">
+                  <button onClick={() => setKgTab('view')} className={`flex-1 py-2 ${kgTab === 'view' ? 'bg-background text-primary' : 'text-muted-foreground'}`}>View Graph</button>
+                  <button onClick={() => setKgTab('add')} className={`flex-1 py-2 ${kgTab === 'add' ? 'bg-background text-primary' : 'text-muted-foreground'}`}>Add Entity</button>
+                </div>
+                <div className="p-3 bg-background min-h-[120px] max-h-[200px] overflow-y-auto">
+                  {kgTab === 'view' ? (
+                    <div className="space-y-2">
+                      {diag.graph?.slice(-10).reverse().map((n: any, i: number) => (
+                        <div key={i} className="text-xs border-b border-border pb-1 flex justify-between items-start">
+                          <div>
+                            <div className="font-bold text-primary">{n.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{n.categories.join(', ')}</div>
+                          </div>
+                          <button 
+                            onClick={() => { intel.graph.deleteEntity(n.name); intel.clearCaches(); }}
+                            className="text-destructive hover:opacity-70"
+                          >✕</button>
+                        </div>
+                      ))}
+                      {(!diag.graph || diag.graph.length === 0) && <div className="text-center text-muted-foreground py-4">No entities yet</div>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input 
+                        placeholder="Entity Name (e.g. Dhaka)" 
+                        className="w-full text-xs p-1.5 border border-border rounded bg-background"
+                        value={newEntity.name}
+                        onChange={e => setNewEntity({...newEntity, name: e.target.value})}
+                      />
+                      <input 
+                        placeholder="Categories (comma separated)" 
+                        className="w-full text-xs p-1.5 border border-border rounded bg-background"
+                        value={newEntity.categories}
+                        onChange={e => setNewEntity({...newEntity, categories: e.target.value})}
+                      />
+                      <input 
+                        placeholder="Relations (comma separated)" 
+                        className="w-full text-xs p-1.5 border border-border rounded bg-background"
+                        value={newEntity.relations}
+                        onChange={e => setNewEntity({...newEntity, relations: e.target.value})}
+                      />
+                      <button 
+                        onClick={handleAddEntity}
+                        className="w-full py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded"
+                      >Add to Graph</button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button
