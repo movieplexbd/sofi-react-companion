@@ -32,19 +32,14 @@ export default function SofiaChat() {
 
   useEffect(() => { localStorage.setItem('sofia-lang', lang); }, [lang]);
 
+  // FIX: Send welcome message directly via addExtraMessage (sendMessage('') returns early for empty strings)
   useEffect(() => {
     if (data && !loading && !welcomeSent.current) {
       welcomeSent.current = true;
-      sofia.sendMessage('');
-    }
-  }, [data, loading]);
-
-  useEffect(() => {
-    if (data && !loading && sofia.messages.length === 0 && welcomeSent.current) {
       const welcome = sofia.getWelcomeMessage();
       sofia.addExtraMessage(welcome);
     }
-  }, [data, loading, sofia.messages.length]);
+  }, [data, loading]);
 
   const handleSend = useCallback(async (text: string) => {
     const result = await sofia.sendMessage(text);
@@ -63,10 +58,22 @@ export default function SofiaChat() {
     }
   }, [sofia]);
 
+  // FIX: Wire up Phase 6 feedback learning — recordClick for positive, recordIgnore for negative
   const handleFeedbackWrapper = useCallback((key: string, isPositive: boolean, userQ?: string) => {
     handleFeedback(key, isPositive, userQ);
+
+    // Find the matching bot message to get its engines list
+    const botMsg = sofia.messages.find(m => m.firebaseKey === key);
+    const engines = botMsg?.method ? botMsg.method.split('+') : [];
+
+    if (isPositive) {
+      sofia.intel?.recordClick(userQ || '', key, engines);
+    } else {
+      sofia.intel?.recordIgnore(userQ || '', key, engines);
+    }
+
     toast(isPositive ? '👍 ধন্যবাদ!' : '👎 Feedback দেওয়ার জন্য ধন্যবাদ!');
-  }, [handleFeedback]);
+  }, [handleFeedback, sofia]);
 
   const handleClearChat = useCallback(() => {
     if (confirm(t('clearConfirm', lang))) {
@@ -120,6 +127,27 @@ export default function SofiaChat() {
 
   const lowConf = data?.cfg.thresholds?.lowConfidence || 35;
   const highConf = data?.cfg.thresholds?.highConfidence || 70;
+
+  // FIX: Show error UI when Firebase load fails
+  if (error) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-background font-bengali px-6 text-center">
+        <div className="text-5xl mb-4">⚠️</div>
+        <h1 className="text-xl font-bold text-destructive mb-2">সংযোগ ব্যর্থ হয়েছে</h1>
+        <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+          Firebase থেকে ডেটা লোড করা যায়নি। ইন্টারনেট সংযোগ চেক করুন এবং পেজ রিলোড করুন।
+        </p>
+        <p className="text-xs text-muted-foreground mb-6 font-mono bg-secondary px-3 py-2 rounded">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-6 py-2.5 rounded-xl text-primary-foreground font-semibold transition-all hover:scale-105 active:scale-95"
+          style={{ background: 'var(--header-gradient, hsl(280 70% 36%))' }}
+        >
+          🔄 আবার চেষ্টা করুন
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-screen h-screen flex flex-col overflow-hidden bg-background font-bengali">
