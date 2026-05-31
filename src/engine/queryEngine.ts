@@ -483,6 +483,12 @@ export function createSofiaEngine(
       }
     }
 
+    // ── Intelligence Layer (Phase 1+2+3+7): query understanding + follow-up resolution ──
+    const uq = intel.understand(inputText);
+
+    // Cache check (Phase 9)
+    const cached = intel.cacheGet(uq.contextualText);
+
     // Hybrid search
     let candidates = hybridSearch(processed, correctedText, tokens, expandedToks, bm25M, tfidfM, D);
     candidates = ctxBoost(candidates);
@@ -498,7 +504,24 @@ export function createSofiaEngine(
       }
     }
 
-    const ranked = ensembleVote(candidates, entities, RT.memory, D.cfg);
+    // ── Phase 5+6+8: multi-stage intelligent re-rank ──
+    const intelCandidates: RawCandidate[] = candidates.map(c => ({
+      item: c.item, score: c._score, engine: c._method as EngineName,
+    }));
+    const intelRanked = cached ?? intel.rankCandidates(intelCandidates, uq);
+    if (!cached && intelRanked.length) intel.cacheSet(uq.contextualText, intelRanked);
+
+    // Merge: prefer intelligence ranking when it has results; fall back to ensembleVote
+    const legacyRanked = ensembleVote(candidates, entities, RT.memory, D.cfg);
+    const ranked = intelRanked.length
+      ? intelRanked.map(r => ({
+          item: r.item,
+          finalScore: r.finalScore,
+          methods: r.engines as string[],
+          score: r.finalScore,
+          count: r.engines.length,
+        }))
+      : legacyRanked;
 
     if (ranked.length) {
       const winner = ranked[0];
