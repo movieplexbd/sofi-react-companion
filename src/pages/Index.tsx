@@ -23,6 +23,7 @@ export default function SofiaChat() {
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
   const [matchBadge, setMatchBadge] = useState<string | null>(null);
   const [extraMessages, setExtraMessages] = useState<Map<string, Message>>(new Map());
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const welcomeSent = useRef(false);
 
   useEffect(() => {
@@ -32,16 +33,34 @@ export default function SofiaChat() {
 
   useEffect(() => { localStorage.setItem('sofia-lang', lang); }, [lang]);
 
-  // FIX: Send welcome message directly via addExtraMessage (sendMessage('') returns early for empty strings)
+  // Welcome message — send directly, not via sendMessage('') which exits early for empty strings
   useEffect(() => {
     if (data && !loading && !welcomeSent.current) {
       welcomeSent.current = true;
-      const welcome = sofia.getWelcomeMessage();
-      sofia.addExtraMessage(welcome);
+      sofia.addExtraMessage(sofia.getWelcomeMessage());
+
+      // Phase 11: Auto-build knowledge from QA data on startup (first 50 items)
+      if (sofia.intel) {
+        sofia.intel.buildFromQABatch(data.qa, 50);
+      }
     }
   }, [data, loading]);
 
+  // Phase 12: Smart suggestions while typing
+  const handleTyping = useCallback((text: string) => {
+    if (!sofia.intel || !data || text.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const results = sofia.intel.getSuggestions(text, data.qa, 5);
+    setSuggestions(results);
+  }, [sofia.intel, data]);
+
   const handleSend = useCallback(async (text: string) => {
+    setSuggestions([]);
+    // Phase 12: Record query for trending
+    sofia.intel?.recordQuery(text);
+
     const result = await sofia.sendMessage(text);
     if (result?.extraMessage) {
       setTimeout(() => {
@@ -58,20 +77,13 @@ export default function SofiaChat() {
     }
   }, [sofia]);
 
-  // FIX: Wire up Phase 6 feedback learning — recordClick for positive, recordIgnore for negative
+  // Phase 6+10: Wire feedback to recordClick/recordIgnore for learning
   const handleFeedbackWrapper = useCallback((key: string, isPositive: boolean, userQ?: string) => {
     handleFeedback(key, isPositive, userQ);
-
-    // Find the matching bot message to get its engines list
     const botMsg = sofia.messages.find(m => m.firebaseKey === key);
     const engines = botMsg?.method ? botMsg.method.split('+') : [];
-
-    if (isPositive) {
-      sofia.intel?.recordClick(userQ || '', key, engines);
-    } else {
-      sofia.intel?.recordIgnore(userQ || '', key, engines);
-    }
-
+    if (isPositive) sofia.intel?.recordClick(userQ || '', key, engines);
+    else sofia.intel?.recordIgnore(userQ || '', key, engines);
     toast(isPositive ? '👍 ধন্যবাদ!' : '👎 Feedback দেওয়ার জন্য ধন্যবাদ!');
   }, [handleFeedback, sofia]);
 
@@ -94,9 +106,10 @@ export default function SofiaChat() {
   const handleShowInfo = useCallback(() => {
     const cfg = data?.cfg;
     const n = cfg?.botName || 'Sofia';
+    const trending = sofia.intel?.getTrending(3).join(' • ') || '—';
     sofia.addExtraMessage({
       id: `info_${Date.now()}`, sender: 'bot', timestamp: new Date(),
-      text: `### 🤖 ${n} v${cfg?.version || '4.0'}\n\n**7 Search Engines:**\nBM25 · BM25F · TF-IDF · N-gram · Fuzzy · Phonetic · Jaccard\n\n**Database:** ${data?.qa.length || 0} QA · ${Object.keys(data?.syn || {}).length} Synonyms · ${Object.keys(data?.int || {}).length} Intents · ${Object.keys(data?.ent || {}).length} Entities`,
+      text: `### 🤖 ${n} v${cfg?.version || '4.0'}\n\n**Intelligence Phases:** 16/16 ✅\n\n**Search Engines:** BM25 · BM25F · TF-IDF · N-gram · Fuzzy · Phonetic · Jaccard · Substring\n\n**Database:** ${data?.qa.length || 0} QA · ${Object.keys(data?.syn || {}).length} Synonyms\n\n**KG Entities:** ${sofia.intel?.graph.size() || 0}\n\n**🔥 Trending:** ${trending}`,
     });
   }, [sofia, data]);
 
@@ -106,9 +119,9 @@ export default function SofiaChat() {
     ).join('\n\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `sofia-chat-${Date.now()}.txt`;
-    a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `sofia-chat-${Date.now()}.txt`; a.click();
+    URL.revokeObjectURL(url);
     toast('📥 Chat exported!');
   }, [sofia.messages]);
 
@@ -128,19 +141,19 @@ export default function SofiaChat() {
   const lowConf = data?.cfg.thresholds?.lowConfidence || 35;
   const highConf = data?.cfg.thresholds?.highConfidence || 70;
 
-  // FIX: Show error UI when Firebase load fails
+  // Error UI — Firebase load failed
   if (error) {
     return (
       <div className="w-screen h-screen flex flex-col items-center justify-center bg-background font-bengali px-6 text-center">
         <div className="text-5xl mb-4">⚠️</div>
         <h1 className="text-xl font-bold text-destructive mb-2">সংযোগ ব্যর্থ হয়েছে</h1>
         <p className="text-muted-foreground text-sm mb-6 max-w-sm">
-          Firebase থেকে ডেটা লোড করা যায়নি। ইন্টারনেট সংযোগ চেক করুন এবং পেজ রিলোড করুন।
+          Firebase থেকে ডেটা লোড করা যায়নি। ইন্টারনেট সংযোগ চেক করুন।
         </p>
         <p className="text-xs text-muted-foreground mb-6 font-mono bg-secondary px-3 py-2 rounded">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 rounded-xl text-primary-foreground font-semibold transition-all hover:scale-105 active:scale-95"
+          className="px-6 py-2.5 rounded-xl text-primary-foreground font-semibold transition-all hover:scale-105"
           style={{ background: 'var(--header-gradient, hsl(280 70% 36%))' }}
         >
           🔄 আবার চেষ্টা করুন
@@ -203,6 +216,8 @@ export default function SofiaChat() {
             onSend={handleSend}
             disabled={!data || sofia.isTyping}
             placeholder={t('typeHere', lang)}
+            suggestions={suggestions}
+            onTyping={handleTyping}
           />
 
           <AnalyticsDashboard
