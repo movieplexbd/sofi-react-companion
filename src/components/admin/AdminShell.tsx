@@ -9,7 +9,8 @@ import {
 export type AdminTab =
   | 'dashboard' | 'qa' | 'bulk' | 'synonyms' | 'intents'
   | 'entities' | 'config' | 'analytics' | 'insights'
-  | 'power' | 'backup';
+  | 'power' | 'backup' | 'exporter' | 'importer' | 'ab-test'
+  | 'categorizer' | 'negative-feedback' | 'confidence-fallback';
 
 interface Props {
   active: AdminTab;
@@ -24,6 +25,12 @@ const TABS: { id: AdminTab; label: string; icon: any }[] = [
   { id: 'bulk', label: 'Bulk Upload', icon: Upload },
   { id: 'power', label: 'Power Tools', icon: Wrench },
   { id: 'backup', label: 'Backup', icon: Save },
+  { id: 'exporter', label: 'Export Trainer', icon: Upload },
+  { id: 'importer', label: 'Knowledge Import', icon: BookA },
+  { id: 'ab-test', label: 'A/B Testing', icon: BarChart3 },
+  { id: 'categorizer', label: 'Auto Categorizer', icon: Tag },
+  { id: 'negative-feedback', label: 'Feedback Rewriter', icon: Lightbulb },
+  { id: 'confidence-fallback', label: 'Confidence Fallback', icon: Brain },
   { id: 'synonyms', label: 'Synonyms', icon: BookA },
   { id: 'intents', label: 'Intents', icon: Brain },
   { id: 'entities', label: 'Entities', icon: Tag },
