@@ -160,7 +160,7 @@ export function createIntelligence(userSyn: Record<string, string[]> = {}): Inte
     recordTurn, recordShown, recordClick, recordIgnore,
 
     // Phase 12
-    getSuggestions: (prefix, allQA) => getSuggestions(prefix, allQA),
+    getSuggestions: (prefix, allQA, limit) => getSuggestions(prefix, allQA, limit),
     getTrending,
     recordQuery,
 
