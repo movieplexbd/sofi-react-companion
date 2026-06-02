@@ -8,6 +8,8 @@ import KeyListTab from '../components/admin/KeyListTab';
 import ConfigTab from '../components/admin/ConfigTab';
 import AnalyticsTab from '../components/admin/AnalyticsTab';
 import InsightsTab from '../components/admin/InsightsTab';
+import PowerToolsTab from '../components/admin/PowerToolsTab';
+import BackupTab from '../components/admin/BackupTab';
 import { useAdmin } from '../hooks/useAdmin';
 import { Toaster } from 'sonner';
 
@@ -31,6 +33,8 @@ export default function Admin() {
         ) : tab === 'dashboard' ? <DashboardTab admin={admin} />
           : tab === 'qa' ? <QATab admin={admin} />
           : tab === 'bulk' ? <BulkTab admin={admin} />
+          : tab === 'power' ? <PowerToolsTab admin={admin} />
+          : tab === 'backup' ? <BackupTab admin={admin} />
           : tab === 'synonyms' ? <KeyListTab admin={admin} path="synonymMap" title="Synonyms" desc="Map a canonical word to its variants. Used for query expansion." />
           : tab === 'intents' ? <KeyListTab admin={admin} path="intents" title="Intents" desc="Pattern / keyword groups that trigger specific responses." valueLabel='JSON: {"keywords":["..."],"responses":["..."]}' singleValue />
           : tab === 'entities' ? <KeyListTab admin={admin} path="entities" title="Entities" desc="Named-entity groups (people, places, products)." />
